@@ -1,0 +1,8 @@
+Name=Acc_test
+Exec=/opt/apps/acc_test/bin/acc_test
+Type=Application
+Comment=Usb accessory test application
+NoDisplay=true
+X-TIZEN-Removable=true
+X-TIZEN-TaskManage=true
+Version=0.1.0-0

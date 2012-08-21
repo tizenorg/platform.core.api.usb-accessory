@@ -1,0 +1,17 @@
+
+Source: acc_test
+Section: tools
+Priority: extra
+Maintainer: Taeyoung Kim <ty317.kim@samsung.com> Taesoo Jun <steve.jun@samsung.com>
+Build-Depends: debhelper (>= 5), dlog-dev, libglib2.0-dev, capi-system-usb-accessory-dev, libelm-dev, libappcore-efl-dev, libecore-dev, libevas-dev
+
+Package: acc-test
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: A test package for usb accessory 
+
+Package: acc-test-dbg
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, acc-test (= ${Source-Version})
+Description: A test package for testing usb accessory
+
