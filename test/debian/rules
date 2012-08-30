@@ -54,7 +54,7 @@ binary-arch: build install
 	dh_install --sourcedir=debian/tmp
 	dh_installman
 	dh_link
-	dh_strip --dbg-package=acc-test-dbg
+	dh_strip --dbg-package=acc_test-dbg
 	dh_fixperms
 	dh_makeshlibs
 	dh_installdeb

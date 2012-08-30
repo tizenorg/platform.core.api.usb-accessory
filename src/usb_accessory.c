@@ -23,6 +23,10 @@ int usb_accessory_clone(usb_accessory_h handle, usb_accessory_h* cloned_handle)
 {
 	__USB_FUNC_ENTER__ ;
 	if (!handle) return USB_ERROR_INVALID_PARAMETER;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	if (!cloned_handle || *cloned_handle) return USB_ERROR_INVALID_PARAMETER;
 	*cloned_handle = (usb_accessory_h)malloc(sizeof(struct usb_accessory_s));
 	snprintf((*cloned_handle)->manufacturer, strlen(handle->manufacturer), "%s", handle->manufacturer);
@@ -42,6 +46,10 @@ int usb_accessory_destroy(usb_accessory_h handle)
 {
     __USB_FUNC_ENTER__ ;
 	if (!handle) return USB_ERROR_INVALID_PARAMETER;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	FREE(handle);
 	__USB_FUNC_EXIT__ ;
 	return USB_ERROR_NONE;
@@ -50,6 +58,11 @@ int usb_accessory_destroy(usb_accessory_h handle)
 int usb_accessory_foreach_attached(usb_accessory_attached_cb callback, void *user_data)
 {
 	__USB_FUNC_ENTER__ ;
+	if (callback == NULL) return USB_ERROR_INVALID_PARAMETER;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	struct usb_accessory_list *accList = NULL;
 	struct usb_accessory_list *tmpList = NULL;
 	bool ret = false;
@@ -80,6 +93,10 @@ int usb_accessory_foreach_attached(usb_accessory_attached_cb callback, void *use
 int usb_accessory_set_connection_changed_cb(usb_accessory_connection_changed_cb callback, void* user_data)
 {
 	__USB_FUNC_ENTER__ ;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	int ret = -1;
 	accCbData = (struct AccCbData *)malloc(sizeof(struct AccCbData));
 	accCbData->user_data = user_data;
@@ -94,6 +111,10 @@ int usb_accessory_set_connection_changed_cb(usb_accessory_connection_changed_cb 
 int usb_accessory_connection_unset_cb()
 {
 	__USB_FUNC_ENTER__ ;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	if (accCbData != NULL) {
 		FREE(accCbData);
 		int ret = vconf_ignore_key_changed(VCONFKEY_USB_ACCESSORY_STATUS, accessory_status_changed_cb);
@@ -109,6 +130,10 @@ int usb_accessory_has_permission(usb_accessory_h accessory, bool* is_granted)
 {
 	__USB_FUNC_ENTER__ ;
 	if (!accessory) return USB_ERROR_INVALID_PARAMETER;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	if (accessory->accPermission == true) {
 		__USB_FUNC_EXIT__ ;
 		return USB_ERROR_NONE;
@@ -125,13 +150,13 @@ int usb_accessory_has_permission(usb_accessory_h accessory, bool* is_granted)
 		}
 
 		ret = ipc_request_client_init(&sock_remote);
-		um_retvm_if(ret < 0, USB_ERROR_PERMISSION_DENIED, "FAIL: ipc_request_client_init(&sock_remote)\n");
+		um_retvm_if(ret < 0, USB_ERROR_PERMISSION_DENIED, "FAIL: ipc_request_client_init()\n");
 
-		ret = request_to_usb_server(sock_remote, HAS_PERMISSION, buf, app_id);
-		um_retvm_if(ret < 0, USB_ERROR_PERMISSION_DENIED, "FAIL: request_to_usb_server(HAS_PERMISSION)\n");
+		ret = request_to_usb_server(sock_remote, HAS_ACC_PERMISSION, buf, app_id);
+		um_retvm_if(ret < 0, USB_ERROR_PERMISSION_DENIED, "FAIL: request_to_usb_server()\n");
 
 		ret = ipc_request_client_close(&sock_remote);
-		um_retvm_if(ret < 0, USB_ERROR_PERMISSION_DENIED, "FAIL: ipc_request_client_close(&sock_remote)\n");
+		um_retvm_if(ret < 0, USB_ERROR_PERMISSION_DENIED, "FAIL: ipc_request_client_close()\n");
 
 		FREE(app_id);
 
@@ -154,6 +179,10 @@ int usb_accessory_open(usb_accessory_h accessory, FILE **fd)
 {
 	__USB_FUNC_ENTER__ ;
 	if (!accessory) return USB_ERROR_INVALID_PARAMETER;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	if (accessory->accPermission == true) {
 		*fd = fopen(USB_ACCESSORY_NODE, "r+");
 		USB_LOG("file pointer: %d", *fd);
@@ -170,6 +199,10 @@ int usb_accessory_get_description(usb_accessory_h accessory, char** description)
 {
 	__USB_FUNC_ENTER__ ;
 	if (!accessory) return USB_ERROR_INVALID_PARAMETER;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	*description = strdup(accessory->description);
 	__USB_FUNC_ENTER__ ;
     return USB_ERROR_NONE;
@@ -180,6 +213,10 @@ int usb_accessory_get_manufacturer(usb_accessory_h accessory, char** manufacture
 {
 	__USB_FUNC_ENTER__ ;
 	if (!accessory) return USB_ERROR_INVALID_PARAMETER;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	*manufacturer = strdup(accessory->manufacturer);
 	__USB_FUNC_ENTER__ ;
     return USB_ERROR_NONE;
@@ -190,6 +227,10 @@ int usb_accessory_get_model(usb_accessory_h accessory, char** model)
 {
 	__USB_FUNC_ENTER__ ;
 	if (!accessory) return USB_ERROR_INVALID_PARAMETER;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	*model = strdup(accessory->model);
 	__USB_FUNC_ENTER__ ;
     return USB_ERROR_NONE;
@@ -200,6 +241,10 @@ int usb_accessory_get_serial(usb_accessory_h accessory, char** serial)
 {
 	__USB_FUNC_ENTER__ ;
 	if (!accessory) return USB_ERROR_INVALID_PARAMETER;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	*serial = strdup(accessory->serial);
 	__USB_FUNC_ENTER__ ;
     return USB_ERROR_NONE;
@@ -210,6 +255,10 @@ int usb_accessory_get_version(usb_accessory_h accessory, char** version)
 {
 	__USB_FUNC_ENTER__ ;
 	if (!accessory) return USB_ERROR_INVALID_PARAMETER;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	*version = strdup(accessory->version);
 	__USB_FUNC_ENTER__ ;
     return USB_ERROR_NONE;
@@ -219,6 +268,10 @@ int usb_accessory_get_version(usb_accessory_h accessory, char** version)
 int usb_accessory_is_connected(usb_accessory_h accessory, bool* is_connected)
 {
 	__USB_FUNC_ENTER__ ;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	int ret = -1;
 	int val = -1;
 	ret = vconf_get_int(VCONFKEY_USB_ACCESSORY_STATUS, &val);
@@ -240,6 +293,10 @@ int usb_accessory_request_permission(usb_accessory_h accessory, usb_accessory_pe
 	__USB_FUNC_ENTER__ ;
 	if (!accessory) return USB_ERROR_INVALID_PARAMETER;
 	if (!callback) return USB_ERROR_INVALID_PARAMETER;
+	if (is_emul_bin()) {
+		USB_LOG("FAIL:USB Accessory is not available with emulator.");
+		return USB_ERROR_NOT_SUPPORTED;
+	}
 	int ret = -1;
 	guint g_ret = 0;
 	int sock_remote;
@@ -270,9 +327,9 @@ int usb_accessory_request_permission(usb_accessory_h accessory, usb_accessory_pe
 		return USB_ERROR_PERMISSION_DENIED;
 	}
 
-	ret = request_to_usb_server(sock_remote, REQUEST_PERMISSION, buf, app_id);
+	ret = request_to_usb_server(sock_remote, REQ_ACC_PERMISSION, buf, app_id);
 	if(ret < 0) {
-		USB_LOG("FAIL: request_to_usb_server(REQUEST_PERMISSION)\n");
+		USB_LOG("FAIL: request_to_usb_server(REQ_ACC_PERMISSION)\n");
 		ret = ipc_request_client_close(&sock_remote);
 		if (ret < 0) USB_LOG("FAIL: ipc_request_client_close(&sock_remote)\n");
 		ret = ipc_noti_client_close(&fd);

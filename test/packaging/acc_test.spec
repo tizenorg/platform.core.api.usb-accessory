@@ -1,4 +1,4 @@
-Name:       acc-test
+Name:       acc_test
 Summary:    A test program for usb accessory
 Version:	0.0.1
 Release:    1
@@ -12,6 +12,8 @@ BuildRequires:  pkgconfig(dlog)
 BuildRequires:  pkgconfig(ecore-x)
 BuildRequires:  pkgconfig(elementary)
 BuildRequires:  pkgconfig(appcore-efl)
+
+%description
 
 %prep
 %setup -q
@@ -32,5 +34,5 @@ chown 5000:5000 /opt/apps/acc_test/bin/acc_test
 
 
 %files
-%attr(644,root,root) /opt/share/applications/acc_test.desktop
+%attr(644,root,root) /opt/share/packages/acc_test.xml
 %attr(555,root,root) /opt/apps/acc_test/bin/acc_test

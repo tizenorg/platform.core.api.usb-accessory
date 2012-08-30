@@ -17,6 +17,7 @@
 #ifndef __TIZEN_SYSTEM_USB_ACCESSORY_PRIVATE_H__
 #define __TIZEN_SYSTEM_USB_ACCESSORY_PRIVATE_H__
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <libintl.h>
 #include <stdbool.h>
@@ -32,7 +33,7 @@
 #include <aul.h>
 #include <vconf.h>
 #include <stdlib.h>
-//#include <Ecore.h>
+#include <sys/utsname.h>
 #include <glib.h>
 
 #define ACC_ELEMENT_LEN 256
@@ -89,15 +90,17 @@ typedef enum {
 } IPC_SIMPLE_RESULT;
 
 typedef enum {
-	LAUNCH_APP = 0,
-	REQUEST_PERMISSION,
-	HAS_PERMISSION,
-	REQ_PERM_NOTI_YES_BTN,
-	REQ_PERM_NOTI_NO_BTN,
-	GET_ACC_INFO,
-	ERROR_POPUP_OK_BTN,
-	KIESWIFI_POPUP_YES_BTN,
-	KIESWIFI_POPUP_NO_BTN
+	/* General */
+	ERROR_POPUP_OK_BTN = 0,
+	IS_EMUL_BIN,
+
+	/* for Accessory */
+	LAUNCH_APP_FOR_ACC = 20,
+	REQ_ACC_PERMISSION,
+	HAS_ACC_PERMISSION,
+	REQ_ACC_PERM_NOTI_YES_BTN,
+	REQ_ACC_PERM_NOTI_NO_BTN,
+	GET_ACC_INFO
 } REQUEST_TO_USB_MANGER;
 
 typedef enum {
@@ -142,5 +145,6 @@ bool freeAccList(struct usb_accessory_list *accList);
 int ipc_noti_client_init(void);
 int ipc_noti_client_close(int *sock_remote);
 gboolean ipc_noti_client_cb(GIOChannel *g_io_ch, GIOCondition condition, gpointer data);
+bool is_emul_bin();
 #endif /* __TIZEN_SYSTEM_USB_ACCESSORY_PRIVATE_H__ */
 

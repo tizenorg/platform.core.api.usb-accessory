@@ -86,11 +86,11 @@ int handle_input_to_server(void *data, char *buf)
 	USB_LOG("Input: %d\n", input);
 
 	switch (input) {
-	case REQ_PERM_NOTI_YES_BTN:
+	case REQ_ACC_PERM_NOTI_YES_BTN:
 		permCbData->accessory->accPermission = true;
 		permCbData->request_perm_cb_func((struct usb_accessory_s*)(permCbData->user_data), true);
 		break;
-	case REQ_PERM_NOTI_NO_BTN:
+	case REQ_ACC_PERM_NOTI_NO_BTN:
 		permCbData->accessory->accPermission = false;
 		permCbData->request_perm_cb_func((struct usb_accessory_s*)(permCbData->user_data), false);
 		break;
@@ -297,23 +297,23 @@ void accessory_status_changed_cb(keynode_t *in_key, void* data)
 	ret = vconf_get_int(VCONFKEY_USB_ACCESSORY_STATUS, &val);
 	um_retm_if(ret < 0, "FAIL: vconf_get_int(VCONFKEY_USB_ACCESSORY_STATUS)\n");
 
-	ret = getChangedAcc(&changedAcc);
-	um_retm_if(ret < 0, "FAIL: getChangedAcc(&changedAcc)\n");
-
 	switch (val) {
 	case VCONFKEY_USB_ACCESSORY_STATUS_DISCONNECTED:
-		conCbData->connection_cb_func(changedAcc, false, conCbData->user_data);
+		conCbData->connection_cb_func(NULL, false, conCbData->user_data);
 		break;
 	case VCONFKEY_USB_ACCESSORY_STATUS_CONNECTED:
+		ret = getChangedAcc(&changedAcc);
+		um_retm_if(ret < 0, "FAIL: getChangedAcc(&changedAcc)\n");
+
 		conCbData->connection_cb_func(changedAcc, true, conCbData->user_data);
+
+		ret = freeChangedAcc(&changedAcc);
+		um_retm_if(ret < 0, "FAIL: freeChangedAcc(&changedAcc)\n");
 		break;
 	default:
 		USB_LOG("ERROR: The value of VCONFKEY_USB_ACCESSORY_STATUS is invalid\n");
 		break;
 	}
-	ret = freeChangedAcc(&changedAcc);
-	um_retm_if(ret < 0, "FAIL: freeChangedAcc(&changedAcc)\n");
-
 	__USB_FUNC_EXIT__ ;
 }
 
@@ -424,4 +424,26 @@ bool freeAccList(struct usb_accessory_list *accList)
 	}
 	__USB_FUNC_EXIT__ ;
 	return true;
+}
+
+bool is_emul_bin()
+{
+	__USB_FUNC_ENTER__ ;
+	int ret = -1;
+	struct utsname name;
+	ret = uname(&name);
+	if (ret < 0) {
+		__USB_FUNC_EXIT__ ;
+		return true;
+	} else {
+		USB_LOG("Machine name: %s", name.machine);
+		if (strcasestr(name.machine, "emul")) {
+			__USB_FUNC_EXIT__ ;
+			return true;
+		} else {
+			__USB_FUNC_EXIT__ ;
+			return false;
+		}
+	}
+
 }
