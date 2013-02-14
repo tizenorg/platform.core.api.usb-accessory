@@ -1,0 +1,3 @@
+/usr/lib/lib*.so*
+#/opt/apps/acc_test/bin/acc_test
+#/opt/share/applications/acc_test.desktop

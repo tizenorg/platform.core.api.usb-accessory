@@ -1,0 +1,22 @@
+
+Source: capi-system-usb-accessory
+Section: libs
+Priority: extra
+Maintainer: pius lee <pius.lee@samsung.com>
+Build-Depends: debhelper (>= 5), dlog-dev, libglib2.0-dev, capi-base-common-dev, libvconf-dev
+
+Package: capi-system-usb-accessory
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: A Device library in Tizen Native API
+
+Package: capi-system-usb-accessory-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, capi-system-usb-accessory (= ${Source-Version}), dlog-dev, capi-base-common-dev, libvconf-dev
+Description: A Device library in Tizen Native API (DEV)
+
+Package: capi-system-usb-accessory-dbg
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, capi-system-usb-accessory (= ${Source-Version})
+Description: A Device library in Tizen Native API (DBG)
+
