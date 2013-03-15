@@ -1,9 +1,9 @@
 Name:       capi-system-usb-accessory
 Summary:    A usb accessory library in TIZEN C API
-Version:    0.0.6
+Version:    0.0.9
 Release:    1
-Group:      framework-api
-License:    APLv2
+Group:      framework/api
+License:    Apache License, Version 2.0
 Source0:    %{name}-%{version}.tar.gz
 Source1:    capi-system-usb-accessory.manifest
 BuildRequires:  cmake
@@ -12,7 +12,6 @@ BuildRequires:  pkgconfig(capi-base-common)
 BuildRequires:  pkgconfig(dlog)
 BuildRequires:  pkgconfig(vconf)
 BuildRequires:  pkgconfig(aul)
-
 Requires(post): /sbin/ldconfig  
 Requires(postun): /sbin/ldconfig
 
@@ -27,7 +26,6 @@ Requires: %{name} = %{version}-%{release}
 %description devel
 
 
-
 %prep
 %setup -q
 
@@ -35,12 +33,11 @@ Requires: %{name} = %{version}-%{release}
 %build
 cp %{SOURCE1} .
 MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
-cmake . -DCMAKE_INSTALL_PREFIX=/usr -DFULLVER=%{version} -DMAJORVER=${MAJORVER}
+%cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER}
 
 make %{?jobs:-j%jobs}
 
 %install
-rm -rf %{buildroot}
 %make_install
 
 %post

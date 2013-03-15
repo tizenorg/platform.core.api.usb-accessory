@@ -17,90 +17,168 @@
 
 #include "usb_accessory_private.h"
 
-/* This function initializes socket for ipc with usb-server */
-int ipc_request_client_init(int *sock_remote)
+#define NUM_ACC_INFO_SEPARATOR 5
+
+static void show_acc_info(struct usb_accessory_s *accessory)
 {
 	__USB_FUNC_ENTER__ ;
-	if (!sock_remote) return -1;
-	int len;
-	struct sockaddr_un remote;
+	if (!accessory)
+		return;
 
-	if (((*sock_remote) = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-		perror("socket");
-		USB_LOG("FAIL: socket(AF_UNIX, SOCK_STREAM, 0)");
-		return -1;;
-	}
-	remote.sun_family = AF_UNIX;
-	strncpy(remote.sun_path, SOCK_PATH, strlen(SOCK_PATH)+1);
-	len = strlen(remote.sun_path) + sizeof(remote.sun_family);
-
-	if (connect((*sock_remote), (struct sockaddr *)&remote, len) == -1) {
-		perror("connect");
-		USB_LOG("FAIL: connect((*sock_remote), (struct sockaddr *)&remote, len)");
-		return -1;
-	}
+	USB_LOG("*******************************");
+	USB_LOG("** Acc manufacturer: %s", accessory->manufacturer);
+	USB_LOG("** Acc model       : %s", accessory->model);
+	USB_LOG("** Acc description : %s", accessory->description);
+	USB_LOG("** Acc version     : %s", accessory->version);
+	USB_LOG("** Acc uri         : %s", accessory->uri);
+	USB_LOG("** Acc serial      : %s", accessory->serial);
+	USB_LOG("*******************************");
 	__USB_FUNC_EXIT__ ;
-	return 0;
 }
 
-/* This function closes socket for ipc with usb-server */
-int ipc_request_client_close(int *sock_remote)
+void free_accessory(struct usb_accessory_s *accessory)
 {
 	__USB_FUNC_ENTER__ ;
-	if (!sock_remote) return -1;
-	close (*sock_remote);
+
+	if (accessory) {
+		FREE(accessory->manufacturer);
+		FREE(accessory->model);
+		FREE(accessory->description);
+		FREE(accessory->version);
+		FREE(accessory->uri);
+		FREE(accessory->serial);
+		FREE(accessory);
+	}
 	__USB_FUNC_EXIT__ ;
-	return 0;
+}
+
+/* Release memory of accessory list */
+void free_acc_list(struct usb_accessory_list *accList)
+{
+	__USB_FUNC_ENTER__ ;
+
+	struct usb_accessory_list *tmpList;
+	struct usb_accessory_s *accessory;
+
+	if (!accList)
+		return;
+
+	while (accList) {
+		tmpList = accList;
+		accList = accList->next;
+		accessory = tmpList->accessory;
+
+		free_accessory(accessory);
+		FREE(tmpList);
+	}
+
+	__USB_FUNC_EXIT__ ;
+}
+
+/* This function initializes socket for ipc with usb-server */
+int ipc_request_client_init()
+{
+	__USB_FUNC_ENTER__ ;
+
+	int sock;
+	struct sockaddr_un remote;
+
+	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+		USB_LOG("FAIL: socket(AF_UNIX, SOCK_STREAM, 0)");
+		return -1;
+	}
+
+	remote.sun_family = AF_UNIX;
+	strncpy(remote.sun_path, SOCK_PATH, sizeof(remote.sun_path));
+
+	if (connect(sock, (struct sockaddr *)&remote, sizeof(remote)) == -1) {
+		USB_LOG("FAIL: connect(sock, (struct sockaddr *)&remote, len)");
+		close(sock);
+		return -1;
+	}
+
+	__USB_FUNC_EXIT__ ;
+	return sock;
 }
 
 /* This function requests something to usb-server by ipc with socket and gets the results */
-int request_to_usb_server(int sock_remote, int request, char *answer, char *pkgName)
+int request_to_usb_server(int sockRemote, int request, void *data, char *answer, int answerLen)
 {
 	__USB_FUNC_ENTER__ ;
+
 	int t;
 	char str[SOCK_STR_LEN];
+	char *pkgName;
 
-	USB_LOG("request: %d, pkgName: %s\n", request, pkgName);
-	snprintf(str, SOCK_STR_LEN, "%d|%s", request, pkgName);
-	if (send (sock_remote, str, strlen(str)+1, 0) == -1) {
-		USB_LOG("FAIL: send (sock_remote, str, strlen(str)+1, 0)\n");
+	if (!answer)
+		return -1;
+
+	switch (request) {
+	case REQ_ACC_PERMISSION:
+	case HAS_ACC_PERMISSION:
+		pkgName = (char *)data;
+		USB_LOG("request: %d, pkgName: %s", request, pkgName);
+		snprintf(str, sizeof(str), "%d|%s", request, pkgName);
+		break;
+	default:
+		USB_LOG("request: %d", request);
+		snprintf(str, sizeof(str), "%d|", request);
+		break;
+	}
+
+	if (send (sockRemote, str, strlen(str)+1, 0) == -1) {
+		USB_LOG("FAIL: send (sock_remote, str, strlen(str)+1, 0)");
 		return -1;
 	}
-	if ((t = recv(sock_remote, answer, SOCK_STR_LEN, 0)) > 0) {
-		if (t < SOCK_STR_LEN) {
+
+	if ((t = recv(sockRemote, answer, answerLen, 0)) > 0) {
+		if (t < answerLen) {
 			answer[t] = '\0';
-		} else { /* t == SOCK_STR_LEN */
-			answer[SOCK_STR_LEN-1] = '\0';
+		} else { /* t == answerLen */
+			answer[answerLen-1] = '\0';
 		}
-		USB_LOG("[CLIENT] Received value: %s\n", answer);
-	} else {
-		USB_LOG("FAIL: recv(sock_remote, str, SOCK_STR_LEN, 0)\n");
-		return -1;
+		USB_LOG("[CLIENT] Received value: %s", answer);
+
+		__USB_FUNC_EXIT__ ;
+		return 0;
 	}
+
+	USB_LOG("FAIL: recv(sock_remote, str, answerLen, 0)");
+
 	__USB_FUNC_EXIT__ ;
-	return 0;
+	return -1;
 }
 
-int handle_input_to_server(void *data, char *buf)
+static int handle_input_to_server(void *data, char *buf)
 {
 	__USB_FUNC_ENTER__ ;
-	if (!data) return -1;
-	if (!buf) return -1;
-	struct AccCbData *permCbData = (struct AccCbData *)data;
-	int input = atoi(buf);
-	USB_LOG("Input: %d\n", input);
+
+	struct AccCbData *permCbData;
+	int input;
+
+	if (!data)
+		return -1;
+	if (!buf)
+		return -1;
+
+	permCbData = (struct AccCbData *)data;
+	input = atoi(buf);
+	USB_LOG("Input: %d", input);
 
 	switch (input) {
 	case REQ_ACC_PERM_NOTI_YES_BTN:
 		permCbData->accessory->accPermission = true;
-		permCbData->request_perm_cb_func((struct usb_accessory_s*)(permCbData->user_data), true);
+		permCbData->request_perm_cb_func(
+				(struct usb_accessory_s*)(permCbData->user_data), true);
 		break;
 	case REQ_ACC_PERM_NOTI_NO_BTN:
 		permCbData->accessory->accPermission = false;
-		permCbData->request_perm_cb_func((struct usb_accessory_s*)(permCbData->user_data), false);
+		permCbData->request_perm_cb_func(
+				(struct usb_accessory_s*)(permCbData->user_data), false);
 		break;
 	default:
-		break;
+		USB_LOG("FAIL: buf (%s) is improper", buf);
+		return -1;
 	}
 	__USB_FUNC_EXIT__ ;
 	return 0;
@@ -109,21 +187,25 @@ int handle_input_to_server(void *data, char *buf)
 static int read_message(int fd, char *str, int len)
 {
 	__USB_FUNC_ENTER__;
-	int ret = -1;
+	int ret;
+
+	if (!str)
+		return -1;
+
 	while(1) {
 		ret = read(fd, str, len);
-		if (ret < 0) {
-			if (EINTR == errno) {
-				USB_LOG("Re-read for error(EINTR)\n");
-				continue;
-			} else {
-				USB_LOG("FAIL: read(fd, str, len)\n");
-				return -1;
-			}
-		} else {
+		if (ret >= 0) {
 			__USB_FUNC_EXIT__;
 			return 0;
 		}
+
+		if (EINTR == errno) {
+			USB_LOG("Re-read for error(EINTR)");
+			continue;
+		}
+
+		USB_LOG("FAIL: read(fd, str, len)");
+		return -1;
 	}
 }
 
@@ -131,37 +213,43 @@ int ipc_noti_client_init(void)
 {
 	__USB_FUNC_ENTER__ ;
 	int sock_local;
-	int ret = -1;
-	int len;
+	int ret;
 	struct sockaddr_un serveraddr;
 
 	sock_local = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock_local < 0) {
-		perror("socket");
-		USB_LOG("FAIL: socket(AF_UNIX, SOCK_STREAM, 0)\n");
+		USB_LOG("FAIL: socket(AF_UNIX, SOCK_STREAM, 0)");
 		return -1;
 	}
+
 	serveraddr.sun_family = AF_UNIX;
 	strncpy(serveraddr.sun_path, ACC_SOCK_PATH, strlen(ACC_SOCK_PATH)+1);
-	USB_LOG("socket file name: %s\n", serveraddr.sun_path);
-	unlink(serveraddr.sun_path);
-	len = strlen(serveraddr.sun_path) + sizeof(serveraddr.sun_family);
+	USB_LOG("socket file name: %s", serveraddr.sun_path);
 
-	if (bind (sock_local, (struct sockaddr *)&serveraddr, len) < 0) {
-		perror("bind");
-		USB_LOG("FAIL: bind (sock_local, (struct sockaddr_un *)serveraddr)\n");
+	unlink(serveraddr.sun_path);
+
+	if (bind (sock_local, (struct sockaddr *)&serveraddr, sizeof(serveraddr)) < 0) {
+		USB_LOG("FAIL: bind (sock_local, (struct sockaddr_un *)serveraddr)");
 		close(sock_local);
 		return -1;
 	}
 
 	ret = chown(ACC_SOCK_PATH, 5000, 5000);
-	if (ret < 0) USB_LOG("FAIL: chown(ACC_SOCK_PATH, 5000, 5000)");
+	if (ret < 0) {
+		USB_LOG("FAIL: chown(ACC_SOCK_PATH, 5000, 5000)");
+		close(sock_local);
+		return -1;
+	}
+
 	ret = chmod(ACC_SOCK_PATH, 0777);
-	if (ret < 0) USB_LOG("FAIL: chmod(ACC_SOCK_PATH, 0777);");
+	if (ret < 0) {
+		USB_LOG("FAIL: chmod(ACC_SOCK_PATH, 0777);");
+		close(sock_local);
+		return -1;
+	}
 
 	if (listen (sock_local, 5) == -1) {
-		perror("listen");
-		USB_LOG("FAIL: listen (sock_local, 5)\n");
+		USB_LOG("FAIL: listen (sock_local, 5)");
 		close(sock_local);
 		return -1;
 	}
@@ -170,75 +258,63 @@ int ipc_noti_client_init(void)
 	return sock_local;
 }
 
-int ipc_noti_client_close(int *sock_remote)
+gboolean ipc_noti_client_cb(GIOChannel *gioCh, GIOCondition condition, gpointer data)
 {
 	__USB_FUNC_ENTER__ ;
-	close(*sock_remote);
-	__USB_FUNC_EXIT__ ;
-	return 0;
-}
 
-gboolean ipc_noti_client_cb(GIOChannel *g_io_ch, GIOCondition condition, gpointer data)
-{
-	__USB_FUNC_ENTER__ ;
-	if (!data) return FALSE;
-	if (!g_io_ch) return FALSE;
 	int fd;
-	int ret = -1;
-	struct sockaddr_un client_address;
-	int client_sockfd;
-	int client_len;
-	char input_buf[SOCK_STR_LEN];
-	char output_buf[SOCK_STR_LEN];
+	int ret;
+	int clientlen;
+	struct sockaddr_un clientaddr;
+	int sockfd;
+	char inbuf[SOCK_STR_LEN];
+	char outbuf[SOCK_STR_LEN];
 	GError *err;
-	GIOStatus gio_ret;
+	GIOStatus gret;
 
-	fd = g_io_channel_unix_get_fd(g_io_ch);
+	if (!data)
+		return FALSE;
+	if (!gioCh)
+		return FALSE;
+
+	fd = g_io_channel_unix_get_fd(gioCh);
 	if (fd < 0) {
-		USB_LOG("FAIL: g_io_channel_unix_get_fd(g_io_ch)\n");
-		gio_ret = g_io_channel_shutdown(g_io_ch, TRUE, &err);
-		if (G_IO_STATUS_ERROR == gio_ret) USB_LOG("ERROR: g_io_channel_shutdown(g_io_ch)\n");
-		g_io_channel_unref(g_io_ch);
-		return FALSE;
+		USB_LOG("FAIL: g_io_channel_unix_get_fd()");
+		goto out_gio_unref;
 	}
 
-	client_len = sizeof(client_address);
-	client_sockfd = accept(fd, (struct sockaddr *)&client_address, (socklen_t *)&client_len);
-	if (client_sockfd == -1) {
-		perror("accept");
-		USB_LOG("FAIL: accept(fd, (struct sockaddr *)&client_address, (socklen_t *)&client_len)\n");
-		gio_ret = g_io_channel_shutdown(g_io_ch, TRUE, &err);
-		if (G_IO_STATUS_ERROR == gio_ret) USB_LOG("ERROR: g_io_channel_shutdown(g_io_ch)\n");
-		g_io_channel_unref(g_io_ch);
-		ret = ipc_noti_client_close(&client_sockfd);
-		if (ret < 0) USB_LOG("FAIL: ipc_noti_client_close(client_sockfd)\n");
-		return FALSE;
+	clientlen = sizeof(clientaddr);
+	sockfd = accept(fd, (struct sockaddr *)&clientaddr, (socklen_t *)&clientlen);
+	if (sockfd == -1) {
+		USB_LOG("FAIL: accept()");
+		goto out_ipc_fd;
 	}
 
-	if(read_message(client_sockfd, input_buf, sizeof(input_buf)) < 0) {
-		USB_LOG("FAIL: read_message(client_sockfd, &buf)\n");
-		snprintf(output_buf, strlen("FAIL"), "%d", IPC_FAIL);
-		ret = write(client_sockfd, &output_buf, sizeof(output_buf));
-		if (ret < 0) USB_LOG("FAIL: write(client_sockfd, &output_buf, sizeof(output_buf))\n");
-		gio_ret = g_io_channel_shutdown(g_io_ch, TRUE, &err);
-		if (G_IO_STATUS_ERROR == gio_ret) USB_LOG("ERROR: g_io_channel_shutdown(g_io_ch)\n");
-		g_io_channel_unref(g_io_ch);
-		ret = ipc_noti_client_close(&client_sockfd);
-		if (ret < 0) USB_LOG("FAIL: ipc_noti_client_close(client_sockfd)\n");
-		return FALSE;
+	if(read_message(sockfd, inbuf, sizeof(inbuf)) < 0) {
+		USB_LOG("FAIL: read_message()");
+		snprintf(outbuf, sizeof(outbuf), "%d", IPC_FAIL);
+		if (0 > write(sockfd, &outbuf, sizeof(outbuf)))
+			USB_LOG("FAIL: write()");
+		goto out_ipc_fd;
 	}
-	USB_LOG("read(): %s\n", input_buf);
-	snprintf(output_buf, SOCK_STR_LEN, "%d", IPC_SUCCESS);
-	ret = write(client_sockfd, &output_buf, sizeof(output_buf));
-	if (ret < 0) USB_LOG("FAIL: write(client_sockfd, &output_buf, sizeof(output_buf))\n");
-	gio_ret = g_io_channel_shutdown(g_io_ch, TRUE, &err);
-	if (G_IO_STATUS_ERROR == gio_ret) USB_LOG("ERROR: g_io_channel_shutdown(g_io_ch)\n");
-	g_io_channel_unref(g_io_ch);
-	ret = ipc_noti_client_close(&client_sockfd);
-	if (ret < 0) USB_LOG("FAIL: ipc_noti_client_close(client_sockfd)\n");
 
-	ret = handle_input_to_server((void *)data, input_buf);
-	if (ret < 0) USB_LOG("FAIL: handle_input_to_server(input_buf, data)\n");
+	USB_LOG("read(): %s", inbuf);
+	snprintf(outbuf, sizeof(outbuf), "%d", IPC_SUCCESS);
+	ret = write(sockfd, &outbuf, sizeof(outbuf));
+	if (ret < 0)
+		USB_LOG("FAIL: write()");
+
+	ret = handle_input_to_server((void *)data, inbuf);
+	if (ret < 0)
+		USB_LOG("FAIL: handle_input_to_server()");
+
+out_ipc_fd:
+	close(sockfd);
+out_gio_unref:
+	gret = g_io_channel_shutdown(gioCh, TRUE, &err);
+	if (G_IO_STATUS_ERROR == gret)
+		USB_LOG("ERROR: g_io_channel_shutdown(gioCh)");
+	g_io_channel_unref(gioCh);
 
 	__USB_FUNC_EXIT__ ;
 	return FALSE;
@@ -249,196 +325,272 @@ gboolean ipc_noti_client_cb(GIOChannel *g_io_ch, GIOCondition condition, gpointe
 char *get_app_id()
 {
 	__USB_FUNC_ENTER__ ;
-	int pid = getpid();
-	USB_LOG("pid: %d\n", pid);
+
+	int ret;
 	char appId[APP_ID_LEN];
-	int ret = aul_app_get_appid_bypid(getpid(), appId, APP_ID_LEN);
-	um_retvm_if(AUL_R_OK != ret, NULL, "FAIL: aul_app_get_appid_bypid(getpid(), appId)\n");
+
+	ret = aul_app_get_appid_bypid(getpid(), appId, sizeof(appId));
+	if (ret != AUL_R_OK) {
+		USB_LOG("FAIL: aul_app_get_appid_bypid()");
+		return NULL;
+	}
+
+	USB_LOG("appId: %s", appId);
+
 	__USB_FUNC_EXIT__ ;
 	return strdup(appId);
 }
 
-/* This function find an accessory attached just now
- * Currently This function supports just one accessory */
-static int getChangedAcc (struct usb_accessory_s **attAcc)
-{
-	__USB_FUNC_ENTER__ ;
-	if (attAcc == NULL) return -1;
-	struct usb_accessory_list *accList = NULL;
-	bool ret;
-
-	accList = (struct usb_accessory_list *)malloc(sizeof(struct usb_accessory_list));
-	um_retvm_if(!accList, -1, "accList == NULL");
-
-	ret = getAccList(&accList);
-	if (ret == false) {
-		USB_LOG("FAIL: getAccList(&accList)");
-		FREE(accList);
-		return -1;
-	}
-
-	*attAcc = (struct usb_accessory_s *)malloc(sizeof(struct usb_accessory_s));
-	snprintf((*attAcc)->manufacturer, ACC_ELEMENT_LEN, "%s", accList->accessory->manufacturer);
-	snprintf((*attAcc)->model, ACC_ELEMENT_LEN, "%s", accList->accessory->model);
-	snprintf((*attAcc)->description, ACC_ELEMENT_LEN, "%s", accList->accessory->description);
-	snprintf((*attAcc)->version, ACC_ELEMENT_LEN, "%s", accList->accessory->version);
-	snprintf((*attAcc)->uri, ACC_ELEMENT_LEN, "%s", accList->accessory->uri);
-	snprintf((*attAcc)->serial, ACC_ELEMENT_LEN, "%s", accList->accessory->serial);
-
-	FREE(accList);
-
-	__USB_FUNC_EXIT__ ;
-	return 0;
-}
-
-/* This func release memory of an accessory attached just now */
-static int freeChangedAcc (struct usb_accessory_s **attAcc)
-{
-	__USB_FUNC_ENTER__ ;
-	if (attAcc == NULL) return -1;
-	FREE(*attAcc);
-	__USB_FUNC_EXIT__ ;
-	return 0;
-}
-
-/* Callback function which is called when accessory vconf key is changed */
-void accessory_status_changed_cb(keynode_t *in_key, void* data)
-{
-	__USB_FUNC_ENTER__ ;
-	if (!data)  return ;
-	struct AccCbData *conCbData = (struct AccCbData *)data;
-	struct usb_accessory_s *changedAcc = NULL;
-	int ret = -1;
-	int val = -1;
-	ret = vconf_get_int(VCONFKEY_USB_ACCESSORY_STATUS, &val);
-	um_retm_if(ret < 0, "FAIL: vconf_get_int(VCONFKEY_USB_ACCESSORY_STATUS)\n");
-
-	switch (val) {
-	case VCONFKEY_USB_ACCESSORY_STATUS_DISCONNECTED:
-		conCbData->connection_cb_func(NULL, false, conCbData->user_data);
-		break;
-	case VCONFKEY_USB_ACCESSORY_STATUS_CONNECTED:
-		ret = getChangedAcc(&changedAcc);
-		um_retm_if(ret < 0, "FAIL: getChangedAcc(&changedAcc)\n");
-
-		conCbData->connection_cb_func(changedAcc, true, conCbData->user_data);
-
-		ret = freeChangedAcc(&changedAcc);
-		um_retm_if(ret < 0, "FAIL: freeChangedAcc(&changedAcc)\n");
-		break;
-	default:
-		USB_LOG("ERROR: The value of VCONFKEY_USB_ACCESSORY_STATUS is invalid\n");
-		break;
-	}
-	__USB_FUNC_EXIT__ ;
-}
-
 /* Get an element from a string which has all information of an accessory */
-static bool getAccElement(char *totalInfo[], char accInfo[])
+static bool get_acc_element(char **totalInfo, char **info)
 {
 	__USB_FUNC_ENTER__ ;
-	if (!totalInfo) return false;
-	if (!accInfo) return false;
 
-	char *finder = *totalInfo;
+	char *finder;
 
-	if (*totalInfo) {
-		while (1) {
-			if (finder == NULL) {
-				USB_LOG("ERROR: finder == NULL");
-				__USB_FUNC_EXIT__ ;
-				return false;
-			}
-			if (*finder == '|' || *finder == '\0') {
-				*finder = '\0';
-				snprintf(accInfo, ACC_ELEMENT_LEN, "%s", *totalInfo);
-				USB_LOG("Info: %s", accInfo);
-				*totalInfo = ++finder;
-				__USB_FUNC_EXIT__ ;
-				return true;
-			}
+	if (!totalInfo || !(*totalInfo))
+		return false;
+	if (!info)
+		return false;
+
+	finder = *totalInfo;
+
+	while (finder) {
+		if (*finder != '|' && *finder != '\0') {
 			finder++;
+			continue;
 		}
+
+		*finder = '\0';
+		*info = strdup(*totalInfo);
+		USB_LOG("Info: %s", *info);
+		*totalInfo = ++finder;
+		__USB_FUNC_EXIT__ ;
+		return true;
 	}
+
 	__USB_FUNC_EXIT__ ;
 	return false;
 }
 
 /* Get all element separated from a string which has all information of an accessory */
-static int getAccInfo(char *totalInfo[], struct usb_accessory_s **accessory)
+static int get_acc_info(char *totalInfo, struct usb_accessory_s **accessory)
 {
 	__USB_FUNC_ENTER__ ;
-	bool ret = getAccElement(totalInfo, (*accessory)->manufacturer);
-	um_retvm_if(ret == false, -1, "FAIL: getAccElement(totalInfo, manufacturer)\n");
-	ret = getAccElement(totalInfo, (*accessory)->model);
-	um_retvm_if(ret == false, -1, "FAIL: getAccElement(totalInfo, model)\n");
-	ret = getAccElement(totalInfo, (*accessory)->description);
-	um_retvm_if(ret == false, -1, "FAIL: getAccElement(totalInfo, description)\n");
-	ret = getAccElement(totalInfo, (*accessory)->version);
-	um_retvm_if(ret == false, -1, "FAIL: getAccElement(totalInfo, version)\n");
-	ret = getAccElement(totalInfo, (*accessory)->uri);
-	um_retvm_if(ret == false, -1, "FAIL: getAccElement(totalInfo, uri)\n");
-	ret = getAccElement(totalInfo, (*accessory)->serial);
-	um_retvm_if(ret == false, -1, "FAIL: getAccElement(totalInfo, serial)\n");
+
+	bool ret;
+	char *tmpInfo;
+	int numSepBar;
+
+	if (!totalInfo)
+		goto out_fail;
+	if (!accessory || !(*accessory))
+		goto out_fail;
+
+	/* Check whether or not the format of the accessory info is correct to parse */
+	tmpInfo = totalInfo;
+	numSepBar = 0;
+	while(*tmpInfo != '\0') {
+		if (*tmpInfo == '|')
+			numSepBar++;
+		tmpInfo++;
+	}
+	if (numSepBar != NUM_ACC_INFO_SEPARATOR) {
+		USB_LOG("FAIL: Format of string (%s) is improper", totalInfo);
+		goto out_fail;
+	}
+
+	tmpInfo = totalInfo;
+
+	ret = get_acc_element(&tmpInfo, &((*accessory)->manufacturer));
+	if (!ret)
+		goto out_fail;
+
+	ret = get_acc_element(&tmpInfo, &((*accessory)->model));
+	if (!ret)
+		goto out_release_manufacturer;
+
+	ret = get_acc_element(&tmpInfo, &((*accessory)->description));
+	if (!ret)
+		goto out_release_model;
+
+	ret = get_acc_element(&tmpInfo, &((*accessory)->version));
+	if (!ret)
+		goto out_release_description;
+
+	ret = get_acc_element(&tmpInfo, &((*accessory)->uri));
+	if (!ret)
+		goto out_release_version;
+
+	ret = get_acc_element(&tmpInfo, &((*accessory)->serial));
+	if (!ret)
+		goto out_release_uri;
+
+	(*accessory)->accPermission = false;
+
+	__USB_FUNC_EXIT__ ;
+	return 0;
+
+out_release_uri:
+	FREE((*accessory)->uri);
+out_release_version:
+	FREE((*accessory)->version);
+out_release_description:
+	FREE((*accessory)->description);
+out_release_model:
+	FREE((*accessory)->model);
+out_release_manufacturer:
+	FREE((*accessory)->manufacturer);
+out_fail:
+	__USB_FUNC_EXIT__ ;
+	return -1;
+}
+
+/* This function finds a list which contain all accessories attached
+ * Currently, Tizen usb accessory is designed for just one accessory */
+bool get_acc_list(struct usb_accessory_list **accList)
+{
+	__USB_FUNC_ENTER__ ;
+
+	struct usb_accessory_s *accessory;
+	int ret;
+	int sock_remote;
+	char buf[SOCK_STR_LEN];
+
+	if (!accList || !(*accList))
+		return false;
+
+	sock_remote = ipc_request_client_init();
+	if (sock_remote < 0) {
+		USB_LOG("FAIL: ipc_request_client_init()");
+		return false;
+	}
+
+	ret = request_to_usb_server(sock_remote, GET_ACC_INFO, NULL, buf, sizeof(buf));
+	if (ret < 0) {
+		USB_LOG("FAIL: request_to_usb_server(GET_ACC_INFO)");
+		close(sock_remote);
+		return false;
+	}
+	USB_LOG("GET_ACC_INFO: %s", buf);
+
+	close(sock_remote);
+
+	accessory = (struct usb_accessory_s *)malloc(sizeof(struct usb_accessory_s));
+	if (!accessory) {
+		USB_LOG("FAIL: malloc()");
+		return false;
+	}
+
+	ret = get_acc_info(buf, &accessory);
+	if (0 > ret) {
+		USB_LOG("FAIL: get_acc_info()");
+		return false;
+	}
+
+	(*accList)->next = NULL;
+	(*accList)->accessory = accessory;
+
+	show_acc_info((*accList)->accessory);
+
+	__USB_FUNC_EXIT__ ;
+	return true;
+}
+
+/* This function find an accessory attached just now
+ * Currently This function supports just one accessory */
+static int get_changed_acc (struct usb_accessory_s *attAcc)
+{
+	__USB_FUNC_ENTER__ ;
+
+	struct usb_accessory_list *accList;
+	bool ret;
+
+	if (!attAcc)
+		return -1;
+
+	accList = (struct usb_accessory_list *)malloc(sizeof(struct usb_accessory_list));
+	if (!accList) {
+		USB_LOG("FAIL: malloc()");
+		return -1;
+	}
+
+	ret = get_acc_list(&accList);
+	if (!ret) {
+		USB_LOG("FAIL: get_acc_list()");
+		free_acc_list(accList);
+		return -1;
+	}
+
+	if (!(accList->accessory)) {
+		USB_LOG("FAIL: accList->accessory == NULL");
+		free_acc_list(accList);
+		return -1;
+	}
+
+	attAcc->manufacturer = strdup(accList->accessory->manufacturer);
+	attAcc->model = strdup(accList->accessory->model);
+	attAcc->description = strdup(accList->accessory->description);
+	attAcc->version = strdup(accList->accessory->version);
+	attAcc->uri = strdup(accList->accessory->uri);
+	attAcc->serial = strdup(accList->accessory->serial);
+
+	free_acc_list(accList);
 
 	__USB_FUNC_EXIT__ ;
 	return 0;
 }
 
-/* This function finds a list which contain all accessories attached
- * Currently, Tizen usb accessory is designed for just one accessory */
-bool getAccList(struct usb_accessory_list **accList)
+/* Callback function which is called when accessory vconf key is changed */
+void accessory_status_changed_cb(keynode_t *key, void* data)
 {
 	__USB_FUNC_ENTER__ ;
-	if (accList == NULL || *accList == NULL) return false;
-	struct usb_accessory_s *accessory = NULL;
-	accessory = (struct usb_accessory_s *)malloc(sizeof(struct usb_accessory_s));
-	(*accList)->next = NULL;
-	(*accList)->accessory = accessory;
-	accessory->accPermission = false;
 
-	int ret = -1;
-	int sock_remote;
-	char buf[SOCK_STR_LEN];
-	ret = ipc_request_client_init(&sock_remote);
-	um_retvm_if(ret < 0, false, "FAIL: ipc_request_client_init(&sock_remote)\n");
+	struct AccCbData *conCbData;
+	struct usb_accessory_s *changedAcc;
+	int ret;
+	int val;
 
-	ret = request_to_usb_server(sock_remote, GET_ACC_INFO, buf, NULL);
-	um_retvm_if(ret < 0, false, "FAIL: request_to_usb_server(GET_ACC_INFO)\n");
-	USB_LOG("GET_ACC_INFO: %s\n", buf);
+	if (!data)
+		return;
 
-	ret = ipc_request_client_close(&sock_remote);
-	um_retvm_if(ret < 0, false, "FAIL: ipc_request_client_close(&sock_remote)\n");
+	conCbData = (struct AccCbData *)data;
 
-	char *tempInfo = buf;
-	ret = getAccInfo(&tempInfo, &((*accList)->accessory));
-	um_retvm_if(ret < 0, false, "FAIL: getAccInfo(&tempInfo, accList)\n");
+	ret = vconf_get_int(VCONFKEY_USB_ACCESSORY_STATUS, &val);
+	if (0 > ret) {
+		USB_LOG("FAIL: vconf_get_int()");
+		return ;
+	}
 
-	USB_LOG("Acc manufacturer: %s\n", (*accList)->accessory->manufacturer);
-	USB_LOG("Acc model: %s\n", (*accList)->accessory->model);
-	USB_LOG("Acc description: %s\n", (*accList)->accessory->description);
-	USB_LOG("Acc version: %s\n", (*accList)->accessory->version);
-	USB_LOG("Acc uri: %s\n", (*accList)->accessory->uri);
-	USB_LOG("Acc serial: %s\n", (*accList)->accessory->serial);
+	switch (val) {
+	case VCONFKEY_USB_ACCESSORY_STATUS_DISCONNECTED:
+		conCbData->connection_cb_func(NULL, false, conCbData->user_data);
+		break;
 
-	__USB_FUNC_EXIT__ ;
-	return true;
-}
+	case VCONFKEY_USB_ACCESSORY_STATUS_CONNECTED:
+		changedAcc = (struct usb_accessory_s *)malloc(sizeof(struct usb_accessory_s));
+		if (!changedAcc) {
+			USB_LOG("FAIL: malloc()");
+			return;
+		}
 
-/* Release memory of accessory list */
-bool freeAccList(struct usb_accessory_list *accList)
-{
-	__USB_FUNC_ENTER__ ;
-	if (accList == NULL) return true;
-	struct usb_accessory_list *tmpList = NULL;
-	while (accList) {
-		tmpList = accList;
-		accList = accList->next;
-		FREE(tmpList->accessory);
-		FREE(tmpList);
+		ret = get_changed_acc(changedAcc);
+		if (ret < 0) {
+			USB_LOG("FAIL: get_changed_acc()");
+			free_accessory(changedAcc);
+			return;
+		}
+
+		conCbData->connection_cb_func(changedAcc, true, conCbData->user_data);
+
+		free_accessory(changedAcc);
+
+		break;
+	default:
+		USB_LOG("ERROR: The value of VCONFKEY_USB_ACCESSORY_STATUS is invalid");
+		break;
 	}
 	__USB_FUNC_EXIT__ ;
-	return true;
 }
 
 bool is_emul_bin()
@@ -450,15 +602,14 @@ bool is_emul_bin()
 	if (ret < 0) {
 		__USB_FUNC_EXIT__ ;
 		return true;
-	} else {
-		USB_LOG("Machine name: %s", name.machine);
-		if (strcasestr(name.machine, "emul")) {
-			__USB_FUNC_EXIT__ ;
-			return true;
-		} else {
-			__USB_FUNC_EXIT__ ;
-			return false;
-		}
 	}
 
+	USB_LOG("Machine name: %s", name.machine);
+	if (strcasestr(name.machine, "emul")) {
+		__USB_FUNC_EXIT__ ;
+		return true;
+	} else {
+		__USB_FUNC_EXIT__ ;
+		return false;
+	}
 }

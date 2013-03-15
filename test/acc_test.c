@@ -3,21 +3,10 @@
 #include <Elementary.h>
 #include <dlog.h>
 
-#define USB_TAG "USB_ACC_TEST"
+#undef LOG_TAG
+#define LOG_TAG "USB_ACC_TEST"
 
-#define ACC_LOG(format, args...) \
-	LOG(LOG_VERBOSE, USB_TAG, "[%s][Ln: %d] " format, \
-					(char*)(strrchr(__FILE__, '/')+1), __LINE__, ##args)
-
-#define ACC_LOG_ERROR(format, args...) \
-	LOG(LOG_ERROR, USB_TAG, "[%s][Ln: %d] " format, \
-					(char*)(strrchr(__FILE__, '/')+1), __LINE__, ##args)
-
-#define __ACC_FUNC_ENTER__ \
-			ACC_LOG("Entering: %s()\n", __func__)
-
-#define __ACC_FUNC_EXIT__ \
-			ACC_LOG("Exit: %s()\n", __func__)
+#define ACC_LOG(fmt, args...)   SLOGD(fmt, ##args)
 
 #define FREE(arg) \
 	do { \
@@ -28,8 +17,6 @@
 	} while (0);
 
 usb_accessory_h usbAcc;
-unsigned char input[3];
-unsigned char output[3];
 
 Evas_Object *win = NULL;
 Evas_Object *bg = NULL;
@@ -87,113 +74,134 @@ static void launch_popup(char *str)
 
 void connect_acc_cb(void *data)
 {
-	ACC_LOG("ENTER: connect_acc_cb()\n");
-	ACC_LOG("EXIT: connect_acc_cb()\n");
+	ACC_LOG("ENTER: connect_acc_cb()");
+	ACC_LOG("EXIT: connect_acc_cb()");
 }
 
 void disconnect_acc_cb(void *data)
 {
-	ACC_LOG("ENTER: disconnect_acc_cb()\n");
+	ACC_LOG("ENTER: disconnect_acc_cb()");
 	int ret = usb_accessory_connection_unset_cb();
 	if (ret < 0) {
-		ACC_LOG("FAIL: usb_accessory_connection_unset_cb()\n");
+		ACC_LOG("FAIL: usb_accessory_connection_unset_cb()");
 	}
 	ret = usb_accessory_destroy(usbAcc);
 	if (ret < 0){
-		ACC_LOG("FAIL: usb_accessory_destroy(&usbAcc)\n");
+		ACC_LOG("FAIL: usb_accessory_destroy(&usbAcc)");
 	}
 	elm_exit();
-	ACC_LOG("EXIT: disconnect_acc_cb()\n");
+	ACC_LOG("EXIT: disconnect_acc_cb()");
 }
 
 void connection_cb_func(usb_accessory_h accessory, bool isConnected, void *data)
 {
-	ACC_LOG("ENTER: connection_cb_func()\n");
+	ACC_LOG("ENTER: connection_cb_func()");
 	if (isConnected == true) {
 		connect_acc_cb(accessory);
 	} else {
 		disconnect_acc_cb(accessory);
 	}
-	ACC_LOG("EXIT: connection_cb_func()\n");
+	ACC_LOG("EXIT: connection_cb_func()");
 }
 
-static void send_request()
+static void send_request(unsigned char input[], int len)
 {
-	ACC_LOG("ENTER: send_request()\n");
+	ACC_LOG("ENTER: send_request()");
 	char str[64];
-	FILE *fp = NULL;
-	int ret = usb_accessory_open(usbAcc, &fp);
+	FILE *fp;
+	int ret;
+	unsigned char output[3];
+
+	ret = usb_accessory_open(usbAcc, &fp);
 	if (ret < 0) {
-		ACC_LOG("FAIL: usb_accessory_open(usbAcc, fp)\n");
+		ACC_LOG("FAIL: usb_accessory_open(usbAcc, fp)");
 		return ;
 	}
-	ACC_LOG("fd : %d\n", (int)fp);
-	if (fp <= 0) {
+	if (!fp) {
 		disconnect_acc_cb(usbAcc);
+		return ;
 	}
 
-	ret = fwrite(input, 3, 1, fp);
+	ACC_LOG("Before fwrite(), len: %d", len);
+
+	ret = fwrite(input, len, 1, fp);
 	if (ret < 0) {
-		ACC_LOG("FAIL: fwrite(input, 1, 3, fp)\n");
+		ACC_LOG("FAIL: fwrite()");
 		return ;
 	}
-	ret = fread(output, 3, 1, fp);
+
+	ACC_LOG("After fwrite()");
+
+	ret = fread(output, sizeof(output), 1, fp);
 	if (ret < 0) {
-		ACC_LOG("FAIL: fread(output, 1, 3, fp)\n");
+		ACC_LOG("FAIL: fread()");
 		return ;
 	}
-	ACC_LOG("OUTPUT: %d, %d, %d\n", output[0], output[1], output[2]);
-	snprintf(str, 64, "Input: Type %d<br>Output: %d, %d, %d", input[1], output[0], output[1], output[2]);
+
+	ACC_LOG("OUTPUT: %d, %d, %d", output[0], output[1], output[2]);
+	snprintf(str, sizeof(str), "Input: Type %d<br>Output: %d, %d, %d",
+				input[1], output[0], output[1], output[2]);
 	launch_popup(str);
+
 	ret = fclose(fp);
 	if (0 != ret) {
-		ACC_LOG("FAIL: fclose(fp)\n");
+		ACC_LOG("FAIL: fclose()");
 		return ;
 	}
-	ACC_LOG("EXIT: send_request()\n");
+
+	ACC_LOG("EXIT: send_request()");
 }
 
 static void on_click_1(void *data, Evas_Object *obj, void *event_info)
 {
-	ACC_LOG("ENTER: on_click_1()\n");
+	ACC_LOG("ENTER: on_click_1()");
+	unsigned char input[3];
+
 	input[0] = 0x2;
 	input[1] = 0x1;
 	input[2] = 0x1;
-	send_request();
-	ACC_LOG("EXIT: on_click_1()\n");
+
+	send_request(input, sizeof(input));
+	ACC_LOG("EXIT: on_click_1()");
 }
 
 static void on_click_2(void *data, Evas_Object *obj, void *event_info)
 {
-	ACC_LOG("ENTER: on_click_2()\n");
+	ACC_LOG("ENTER: on_click_2()");
+	unsigned char input[3];
+
 	input[0] = 0x2;
 	input[1] = 0x2;
 	input[2] = 0x1;
-	send_request();
-	ACC_LOG("EXIT: on_click_2()\n");
+
+	send_request(input, sizeof(input));
+	ACC_LOG("EXIT: on_click_2()");
 }
 
 static void on_click_3(void *data, Evas_Object *obj, void *event_info)
 {
-	ACC_LOG("ENTER: on_click_3()\n");
+	ACC_LOG("ENTER: on_click_3()");
+	unsigned char input[3];
+
 	input[0] = 0x2;
 	input[1] = 0x3;
 	input[2] = 0x1;
-	send_request();
-	ACC_LOG("EXIT: on_click_3()\n");
+
+	send_request(input, sizeof(input));
+	ACC_LOG("EXIT: on_click_3()");
 }
 
 static void on_click_4(void *data, Evas_Object *obj, void *event_info)
 {
-	ACC_LOG("ENTER: on_click_4()\n");
+	ACC_LOG("ENTER: on_click_4()");
 	disconnect_acc_cb(usbAcc);
-	ACC_LOG("EXIT: on_click_4()\n");
+	ACC_LOG("EXIT: on_click_4()");
 }
 
 static void register_btn_cb(usb_accessory_h accessory, bool isGranted)
 {
-	ACC_LOG("ENTER: register_btn_cb()\n");
-	if (isGranted != true) {
+	ACC_LOG("ENTER: register_btn_cb()");
+	if (!isGranted) {
 		disconnect_acc_cb(usbAcc);
 		return ;
 	}
@@ -206,70 +214,81 @@ static void register_btn_cb(usb_accessory_h accessory, bool isGranted)
 
 bool foreach_cb(usb_accessory_h handle, void *data)
 {
-	ACC_LOG("ENTER: foreach_cb()\n");
-	if (!handle) return false;
-	bool ret_val = true;
-	int ret = -1;
-	char *manufacturer = NULL;
-	char *model = NULL;
-	char *version = NULL;
+	ACC_LOG("ENTER: foreach_cb()");
+	int ret;
+	char *manufacturer;
+	char *model;
+	char *version;
+
+	if (!handle)
+		return false;
+
 	ret = usb_accessory_get_manufacturer(handle, &manufacturer);
 	if (ret < 0) {
-		ACC_LOG("FAIL: usb_accessory_get_manufacturer(handle, &manufacturer)\n");
-		return true;
+		ACC_LOG("FAIL: usb_accessory_get_manufacturer()");
+		goto out_manufacturer;
 	}
+
 	ret = usb_accessory_get_model(handle, &model);
 	if (ret < 0) {
-		ACC_LOG("FAIL: usb_accessory_get_model(handle, &model)\n");
-		return true;
+		ACC_LOG("FAIL: usb_accessory_get_model()");
+		goto out_model;
 	}
+
 	ret = usb_accessory_get_version(handle, &version);
 	if (ret < 0) {
-		ACC_LOG("FAIL: usb_accessory_get_version(handle, &version)");
-		return true;
+		ACC_LOG("FAIL: usb_accessory_get_version()");
+		goto out_version;
 	}
 
-	if (!strncmp(manufacturer, "Google, Inc.", strlen("Google, Inc."))
-				&& !strncmp(model, "DemoKit", strlen("DemoKit"))
-				&& !strncmp(version, "1.0", strlen("1.0"))) {
+	ACC_LOG("Manufacturer(%s), model(%s), version(%s)", manufacturer, model, version);
+
+	if (!strncmp(manufacturer, "Tizen", strlen("Tizen"))
+			&& !strncmp(model, "DemoKit", strlen("DemoKit"))
+			&& !strncmp(version, "1.0", strlen("1.0"))) {
 		ret = usb_accessory_clone(handle, &usbAcc);
-		if (ret != USB_ERROR_NONE) {
-			ACC_LOG("FAIL: usb_accessory_clone(handle, &usbAcc)\n");
-			ret_val = true;
-		} else {
-			ret_val = false;
+		if (ret == USB_ERROR_NONE) {
+			FREE(version);
+			FREE(model);
+			FREE(manufacturer);
+			ACC_LOG("EXIT: foreach_cb()");
+			return false;
 		}
-	} else {
-		ret_val = true;
 	}
-	FREE(manufacturer);
-	FREE(model);
-	FREE(version);
 
-	ACC_LOG("EXIT: foreach_cb()\n");
-	return ret_val;
+out_version:
+	FREE(version);
+out_model:
+	FREE(model);
+out_manufacturer:
+	FREE(manufacturer);
+
+	ACC_LOG("EXIT: foreach_cb()");
+	return true;
 }
 
 int main(int argc, char **argv)
 {
 	ACC_LOG("ENTER: MAIN()");
-	bool ret = false;
+	bool ret;
+	bool connected;
+	bool perm;
 	usbAcc = NULL;
 
 	ret = usb_accessory_set_connection_changed_cb(connection_cb_func, usbAcc);
 	if (ret < 0) {
-		ACC_LOG("FAIL: usb_accessory_set_connection_changed_cb()\n");
+		ACC_LOG("FAIL: usb_accessory_set_connection_changed_cb()");
 		return -1;
 	}
+
 	/* Check whether or not accessory is connected */
-	bool connected;
 	ret = usb_accessory_is_connected(NULL, &connected);
 	if (ret < 0) {
-		ACC_LOG("FAIL: usb_accessory_is_connected(NULL, &connected)\n");
+		ACC_LOG("FAIL: usb_accessory_is_connected(NULL, &connected)");
 		return -1;
 	}
-	if (connected == false) {
-		ACC_LOG("Accessory is not connected\n");
+	if (!connected) {
+		ACC_LOG("Accessory is not connected");
 		disconnect_acc_cb(NULL);
 		exit(0);
 	}
@@ -277,21 +296,20 @@ int main(int argc, char **argv)
 	/* Retrieve an accessory which is one of the accessories connected and matches to this app */
 	ret = usb_accessory_foreach_attached(foreach_cb, &usbAcc);
 	if (ret < 0) {
-		ACC_LOG("FAIL: usb_accessory_foreach_attached(foreach_cb, usbAcc)\n");
+		ACC_LOG("FAIL: usb_accessory_foreach_attached(foreach_cb, usbAcc)");
 		disconnect_acc_cb(NULL);
 		return -1;
 	}
-	if (usbAcc == NULL) {
-		ACC_LOG("Accessory is NULL\n");
+	if (!usbAcc) {
+		ACC_LOG("Accessory is NULL");
 		disconnect_acc_cb(NULL);
 		return -1;
 	}
 
 	/* Check whether or not this app has permission to open the accessory */
-	bool perm;
 	ret = usb_accessory_has_permission(usbAcc, &perm);
 	if (ret < 0) {
-		ACC_LOG("FAIL: usb_accessory_has_permission(usbAcc)\n");
+		ACC_LOG("FAIL: usb_accessory_has_permission(usbAcc)");
 		return -1;
 	}
 
@@ -332,7 +350,7 @@ int main(int argc, char **argv)
 	evas_object_move(btn4, 100, 950);
 	evas_object_show(btn4);
 
-	if (perm == true) {
+	if (perm) {
 		register_btn_cb(usbAcc, true);
 	} else {
 		ret = usb_accessory_request_permission(usbAcc, register_btn_cb, NULL);

@@ -3,7 +3,7 @@
 	<label>acc_test</label>
 	<author email="ty317.kim@samsung.com" href="www.samsung.com">Taeyoung Kim</author>
 	<description>USB accessory test application</description>
-	<ui-application appid="acc_test" exec="/opt/apps/acc_test/bin/acc_test" nodisplay="true" multiple="false" type="capp" taskmanage="false">
+	<ui-application appid="acc_test" exec="/opt/usr/apps/acc_test/bin/acc_test" nodisplay="true" multiple="false" type="capp" taskmanage="false">
 		<label>acc_test</label>
 		<label xml:lang="en-us">acc_test</label>
 	</ui-application>

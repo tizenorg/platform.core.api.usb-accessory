@@ -20,9 +20,7 @@
 
 #define _GNU_SOURCE
 #include <stdio.h>
-#include <libintl.h>
 #include <stdbool.h>
-#include <errno.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -37,50 +35,25 @@
 #include <sys/utsname.h>
 #include <glib.h>
 
-#define ACC_ELEMENT_LEN 256
 #define SOCK_PATH "/tmp/usb_server_sock"
 #define ACC_SOCK_PATH "/tmp/usb_acc_sock"
 #define USB_ACCESSORY_NODE "/dev/usb_accessory"
 #define APP_ID_LEN 64
 #define SOCK_STR_LEN 1542
 
-#define USB_TAG "USB_ACCESSORY"
 
-#define USB_LOG(format, args...) \
-	LOG(LOG_VERBOSE, USB_TAG, "[%s][Ln: %d] " format, \
-					(char*)(strrchr(__FILE__, '/')+1), __LINE__, ##args)
-
-#define USB_LOG_ERROR(format, args...) \
-	LOG(LOG_ERROR, USB_TAG, "[%s][Ln: %d] " format, \
-					(char*)(strrchr(__FILE__, '/')+1), __LINE__, ##args)
-
-#define __USB_FUNC_ENTER__ \
-			USB_LOG("Entering: %s()\n", __func__)
-
-#define __USB_FUNC_EXIT__ \
-			USB_LOG("Exit: %s()\n", __func__)
+#undef LOG_TAG
+#define LOG_TAG "USB_ACCESSORY"
+#define USB_LOG(fmt, args...)         SLOGD(fmt, ##args)
+#define USB_LOG_ERROR(fmt, args...)   SLOGE(fmt, ##args)
+#define __USB_FUNC_ENTER__            USB_LOG("ENTER")
+#define __USB_FUNC_EXIT__             USB_LOG("EXIT")
 
 #define FREE(arg) \
 	do { \
 		if(arg) { \
 			free((void *)arg); \
 			arg = NULL; \
-		} \
-	} while (0);
-
-#define um_retvm_if(expr, val, fmt, arg...) \
-	do { \
-		if(expr) { \
-			USB_LOG_ERROR(fmt, ##arg); \
-			return (val); \
-		} \
-	} while (0);
-
-#define um_retm_if(expr, fmt, arg...) \
-	do { \
-		if(expr) { \
-			USB_LOG_ERROR(fmt, ##arg); \
-			return; \
 		} \
 	} while (0);
 
@@ -112,25 +85,15 @@ typedef enum {
 	REQ_HOST_CONNECTION
 } REQUEST_TO_USB_MANGER;
 
-
-typedef enum {
-	ACC_MANUFACTURER = 0,
-	ACC_MODEL,
-	ACC_DESCRIPTION,
-	ACC_VERSION,
-	ACC_URI,
-	ACC_SERIAL
-} ACCESSORY_INFO;
-
 struct usb_accessory_s {
-	bool		accPermission;
+	bool accPermission;
 
-	char		manufacturer[ACC_ELEMENT_LEN];
-	char		model[ACC_ELEMENT_LEN];
-	char		description[ACC_ELEMENT_LEN];
-	char		version[ACC_ELEMENT_LEN];
-	char		uri[ACC_ELEMENT_LEN];
-	char		serial[ACC_ELEMENT_LEN];
+	char *manufacturer;
+	char *model;
+	char *description;
+	char *version;
+	char *uri;
+	char *serial;
 };
 
 struct usb_accessory_list {
@@ -145,16 +108,16 @@ struct AccCbData {
 	struct usb_accessory_s *accessory;
 };
 
-int ipc_request_client_init(int *sock_remote);
-int ipc_request_client_close(int *sock_remote);
-int request_to_usb_server(int sock_remote, int request, char *answer, char *pkgName);
+int ipc_request_client_init();
+int request_to_usb_server(int sockRemote, int request, void *data, char *answer, int answerLen);
 char *get_app_id();
-void accessory_status_changed_cb(keynode_t *in_key, void* data);
-bool getAccList(struct usb_accessory_list **accList);
-bool freeAccList(struct usb_accessory_list *accList);
+void accessory_status_changed_cb(keynode_t *key, void* data);
+bool get_acc_list(struct usb_accessory_list **accList);
+void free_accessory(struct usb_accessory_s *accessory);
+void free_acc_list(struct usb_accessory_list *accList);
 int ipc_noti_client_init(void);
-int ipc_noti_client_close(int *sock_remote);
-gboolean ipc_noti_client_cb(GIOChannel *g_io_ch, GIOCondition condition, gpointer data);
+gboolean ipc_noti_client_cb(GIOChannel *gioCh, GIOCondition condition, gpointer data);
 bool is_emul_bin();
+
 #endif /* __TIZEN_SYSTEM_USB_ACCESSORY_PRIVATE_H__ */
 
