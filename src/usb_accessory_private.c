@@ -287,7 +287,7 @@ gboolean ipc_noti_client_cb(GIOChannel *gioCh, GIOCondition condition, gpointer 
 	sockfd = accept(fd, (struct sockaddr *)&clientaddr, (socklen_t *)&clientlen);
 	if (sockfd == -1) {
 		USB_LOG("FAIL: accept()");
-		goto out_ipc_fd;
+		goto out_gio_unref;
 	}
 
 	if(read_message(sockfd, inbuf, sizeof(inbuf)) < 0) {
