@@ -43,11 +43,13 @@ make %{?_smp_mflags}
 %postun -p /sbin/ldconfig
 
 %files
+%manifest %{name}.manifest
 %license LICENSE.Apache_v2
 %manifest capi-system-usb-accessory.manifest
 %{_libdir}/libcapi-system-usb-accessory.so.*
 
 %files devel
+%manifest %{name}.manifest
 %{_includedir}/system/usb_accessory.h
 %{_libdir}/pkgconfig/*.pc
 %{_libdir}/libcapi-system-usb-accessory.so
