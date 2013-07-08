@@ -1,0 +1,8 @@
+Change-Id: If0b4e21e0af73fe260ee9574654ac19622d6d439
+Code-Review+2: Ryan Ware <ware@linux.intel.com>
+Verified+1: Ryan Ware <ware@linux.intel.com>
+Submitted-by: Ryan Ware <ware@linux.intel.com>
+Submitted-at: Mon, 08 Jul 2013 10:08:13 -0700
+Reviewed-on: https://review.tizen.org/gerrit/4421
+Project: platform/core/api/usb-accessory
+Branch: refs/heads/tizen
