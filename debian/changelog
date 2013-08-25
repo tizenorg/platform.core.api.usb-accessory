@@ -1,7 +1,0 @@
-capi-system-usb-accessory (0.0.1-1) unstable; urgency=low
-
-  * Initial release.
-  * Git: slp-source.sec.samsung.net:slp/api/usb-accessory
-  * Tag: capi-system-usb-accessory_0.0.1-1
-
- -- pius lee <pius.lee@samsung.com>  Tue, 05 Jun 2012 00:19:00 +0900

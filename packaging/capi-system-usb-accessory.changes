@@ -1,3 +1,6 @@
+* Sun Aug 25 2013 Chengwei Yang <chengwei.yang@intel.com>
+- Remove debian packaging stuff
+
 * Wed May 29 2013 Anas Nashif <anas.nashif@intel.com> submit/tizen/20130529.130816@c9493a5
 - Rename spec file
 
