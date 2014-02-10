@@ -10,7 +10,7 @@ SET(PREFIX ${CMAKE_INSTALL_PREFIX})
 SET(INC_DIR include)
 INCLUDE_DIRECTORIES(${INC_DIR})
 
-SET(dependents "dlog vconf capi-base-common aul")
+SET(dependents "dlog vconf capi-base-common aul libtzplatform-config")
 SET(pc_dependents "capi-base-common")
 
 INCLUDE(FindPkgConfig)

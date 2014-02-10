@@ -17,6 +17,8 @@
 
 #include "usb_accessory_private.h"
 
+#include <tzplatform_config.h>
+
 #define NUM_ACC_INFO_SEPARATOR 5
 
 static void show_acc_info(struct usb_accessory_s *accessory)
@@ -234,9 +236,9 @@ int ipc_noti_client_init(void)
 		return -1;
 	}
 
-	ret = chown(ACC_SOCK_PATH, 5000, 5000);
+	ret = chown(ACC_SOCK_PATH,tzplatform_getuid(TZ_USER_NAME),tzplatform_getgid(TZ_SYS_USER_GROUP));
 	if (ret < 0) {
-		USB_LOG("FAIL: chown(ACC_SOCK_PATH, 5000, 5000)");
+		USB_LOG("FAIL: chown(ACC_SOCK_PATH, tzplatform_getuid(TZ_USER_NAME),tzplatform_getgid(TZ_SYS_USER_GROUP))");
 		close(sock_local);
 		return -1;
 	}

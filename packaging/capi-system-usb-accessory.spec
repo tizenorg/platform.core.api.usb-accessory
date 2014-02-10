@@ -13,6 +13,8 @@ BuildRequires:  pkgconfig(capi-base-common)
 BuildRequires:  pkgconfig(dlog)
 BuildRequires:  pkgconfig(glib-2.0)
 BuildRequires:  pkgconfig(vconf)
+BuildRequires:  pkgconfig(libtzplatform-config)
+
 %description
 A USB accessory library in TIZEN C API.
 
