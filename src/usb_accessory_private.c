@@ -236,9 +236,9 @@ int ipc_noti_client_init(void)
 		return -1;
 	}
 
-	ret = chown(ACC_SOCK_PATH,tzplatform_getuid(TZ_USER_NAME),tzplatform_getgid(TZ_SYS_USER_GROUP));
+	ret = chown(ACC_SOCK_PATH,tzplatform_getuid(TZ_USER_NAME),tzplatform_getgid(TZ_USER_NAME));
 	if (ret < 0) {
-		USB_LOG("FAIL: chown(ACC_SOCK_PATH, tzplatform_getuid(TZ_USER_NAME),tzplatform_getgid(TZ_SYS_USER_GROUP))");
+		USB_LOG("FAIL: chown(ACC_SOCK_PATH, tzplatform_getuid(TZ_USER_NAME),tzplatform_getgid(TZ_USER_NAME))");
 		close(sock_local);
 		return -1;
 	}
